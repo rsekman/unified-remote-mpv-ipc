@@ -2,6 +2,10 @@
 <layout onLaunch="launch" onVolumeUp="volume_up" onVolumeDown="volume_down" onResume="play_pause" onPause="play_pause">
   <tabs color="blue">
     <tab text="Playback">
+      <row weight="0">
+        <toggle id="onoff" weight="0" color="gray" icon="off" onChange="onoff" />
+        <text id="input_ipc_server" hint="Input IPC server" text="" onDone="update_ipc" />
+      </row>
       <row>
         <button icon="vdown" onTap="volume_down" />
         <button icon="vmute" onTap="volume_mute" />

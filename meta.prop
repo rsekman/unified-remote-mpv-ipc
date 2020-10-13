@@ -1,4 +1,6 @@
-meta.name: MPV
+meta.name: mpv (IPC)
 meta.author: ranisalt
-meta.description: MPV remote control.
+meta.description: mpv remote control via IPC.
+meta.url: https://github.com/Drauthius/unified-remote-mpv-ipc
+meta.platform: linux mac
 meta.tags.category: media
