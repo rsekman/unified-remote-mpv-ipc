@@ -345,6 +345,11 @@ actions.volume_up = function()
   send("add", "volume", 2)
 end
 
+--@help Set volume
+actions.volume_set = function(value)
+  send("set_property", "volume", tonumber(value))
+end
+
 --@help Previous track
 actions.previous = function()
   send("playlist-prev", "weak")
@@ -353,6 +358,11 @@ end
 --@help Next track
 actions.next = function()
   send("playlist-next", "weak")
+end
+
+--@help Seek by percent
+actions.seek = function(value)
+  send("seek", value, "absolute-percent")
 end
 
 --@help Skip forward 10 secs
