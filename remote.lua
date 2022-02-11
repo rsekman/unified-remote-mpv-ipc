@@ -192,6 +192,42 @@ local function observe_property(name, callback)
   send("observe_property", 1, name)
 end
 
+----------------------------------------------------------
+-- UI handlers
+----------------------------------------------------------
+
+-- Update the seekbar
+local function ui_seek(message)
+  if message.data then
+    layout.seek_slider.progress = string.format("%2.0f", message.data)
+  end
+end
+
+-- Update the volume bar
+local function ui_update_volume(message)
+  if message.data then
+    layout.volume_slider.progress = string.format("%2.0f", message.data)
+  end
+end
+
+-- Set the title
+local function ui_set_title(message)
+  if message.data then
+    layout.media_title.text = message.data
+  end
+end
+
+-- Initialize the UI to reflect the current state
+local function initialize_ui()
+  send_with_callback(ui_update_volume, "get_property", "volume")
+  observe_property("volume", ui_update_volume)
+  send_with_callback(ui_seek, "get_property", "percent-pos")
+  observe_property("percent-pos", ui_seek)
+  send_with_callback(ui_set_title, "get_property", "media-title")
+  observe_property("media-title", ui_set_title)
+end
+
+
 -----------------------------------------------------------
 -- Remote events
 -----------------------------------------------------------
@@ -253,6 +289,7 @@ end
 events.focus = function()
   layout.input_ipc_server.text = settings.input_ipc_server
   if connect() then
+    initialize_ui()
     tid = libs.timer.interval(handle_response, 50)
   end
 end
