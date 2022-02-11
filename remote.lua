@@ -13,9 +13,11 @@ local AF_UNIX = 1
 local SOCK_STREAM = 1
 local SOCK_NONBLOCK = 2048
 local EAGAIN = 11
+local POLLIN = 1
 
 ffi.cdef[[
 typedef unsigned short int sa_family_t;
+typedef unsigned short int nfds_t;
 typedef int socklen_t;
 typedef int ssize_t;
 
@@ -24,11 +26,20 @@ typedef struct {
   char        sun_path[108];
 } sockaddr_un;
 
+typedef struct {
+  int   fd;
+  short events;
+  short revents;
+} pollfd;
+
+
 int socket(int domain, int type, int protocol);
 int connect(int sockfd, const struct sockaddr *addr, socklen_t addrlen);
 
 ssize_t write(int fd, const void *buf, size_t count);
 ssize_t read(int fd, void *buf, size_t count);
+
+int poll(pollfd *fds, nfds_t nfds, int timeout);
 
 char *strerror(int errnum);
 
@@ -123,21 +134,34 @@ local function read()
     return nil
   end
 
+  local out = ""
   local buf = ffi.new("char[255]")
-  local ret = ffi.C.read(fd, buf, 255)
-  if ret <= 0 then
-    if ffi.errno() == EAGAIN then
-      return nil
-    elseif ret == 0 then
-      device.toast("Connection to mpv closed")
-      log.info("Connection closed.")
-    else
-      log.warn("Failed to read: "..strerror())
-    end
-    disconnect()
+  local pollfds = ffi.new("pollfd[1]")
+  pollfds[0].fd = fd
+  pollfds[0].events = POLLIN
+  ffi.C.poll(pollfds, 1, 50)
+  if pollfds[0].revents == 0 then
     return nil
   end
-  return ffi.string(buf, 255)
+  repeat
+    local ret = ffi.C.read(fd, buf, 255)
+    if ret < 0 then
+      if ffi.errno() == EAGAIN then
+        break
+      else
+        log.warn("Failed to read: "..strerror())
+      end
+      disconnect()
+      return nil
+    elseif ret > 0 then
+      out = out .. ffi.string(buf, ret)
+    end
+  until ret == 0
+  if out:len() > 0 then
+    return out
+  else
+    return nil
+  end
 end
 
 -----------------------------------------------------------
