@@ -64,6 +64,11 @@ local function disconnect()
     fd = nil
   end
 
+  if tid then
+    libs.timer.cancel(tid)
+    tid = nil
+  end
+
   layout.onoff.icon = "off"
   layout.onoff.color = "red"
 end
