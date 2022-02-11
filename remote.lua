@@ -256,7 +256,6 @@ local handle_response = function()
   -- Try to get a response from mpv.
   local resp = read()
   if resp ~= nil and resp:len() > 0 then
-    log.warn("Full response: " .. resp)
     -- mpv can send multiple JSON objects on each line.
     for msg in resp:gmatch("[^\r\n]+") do
       if msg:match("^{") then
