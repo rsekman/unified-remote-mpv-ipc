@@ -1,25 +1,32 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <layout onLaunch="launch" onVolumeUp="volume_up" onVolumeDown="volume_down" onResume="play_pause" onPause="play_pause">
-  <tabs color="blue">
+  <tabs>
     <tab text="Playback">
       <row weight="0">
         <toggle id="onoff" weight="0" color="gray" icon="off" onChange="onoff" />
         <text id="input_ipc_server" hint="Input IPC server" text="" onDone="update_ipc" />
       </row>
-      <row>
-        <button icon="vdown" onTap="volume_down" />
-        <button icon="vmute" onTap="volume_mute" />
-        <button icon="vup" onTap="volume_up" />
+      <row id="title_row">
+        <label id="media_title" text="[Not Playing]" />
+      </row>
+      <row weight="wrap">
+        <slider id="seek_slider" progress="50" progressmax="100" onChange="seek" />
       </row>
       <row>
+        <button image="res/icons/vmuted.png" onTap="volume_mute" />
+        <slider id="volume_slider" progress="50" progressmax="130" onChange="volume_set" />
+      </row>
+      <row weight="wrap">
+        <button icon="stop" onTap="stop" />
+        <button icon="playpause" onTap="play_pause" />
+      </row>
+      <row weight="wrap">
+        <button icon="previous" onTap="previous" />
         <button icon="rwd" onTap="backward" />
         <button icon="ff" onTap="forward" />
-        <button icon="playpause" onTap="play_pause" />
-        <button icon="stop" onTap="stop" />
+        <button icon="next" onTap="next" />
       </row>
       <row>
-        <button icon="previous" onTap="previous" />
-        <button icon="next" onTap="next" />
         <button text="OSD" onTap="osd" />
         <button icon="fullscreen" onTap="fullscreen" />
       </row>
