@@ -73,6 +73,17 @@ local function connect(path)
   -- Make sure we start off in a disconnected state.
   disconnect()
 
+  requests = {}
+  next_request_id = 1
+  listeners = {
+    ["property-change"] = function (tbl)
+      if tbl.name and observers[tbl.name] then
+        observers[tbl.name](tbl)
+      end
+    end
+  }
+  observers = {}
+
   -- Use the supplied path, or the one from the settings.
   path = path or settings.input_ipc_server
 
@@ -110,13 +121,19 @@ local function connect(path)
   return true
 end
 
--- Send one or more commands to mpv.
-local function send(...)
+-- Send a command to mpv, registering a callback to handle any responses
+local function send_with_callback(callback, ...)
   if not fd then
     return false
   end
 
-  local json = data.tojson({ command = { ... } }) .. "\n"
+  local message = { command = { ...} }
+  if callback then
+    requests[next_request_id] = callback
+    message.request_id = next_request_id
+    next_request_id = next_request_id + 1
+  end
+  local json = data.tojson(message) .. "\n"
   local len = #json
   local ret = ffi.C.write(fd, json, len)
   if ret < 0 then
@@ -164,6 +181,17 @@ local function read()
   end
 end
 
+-- Send one or more commands to mpv.
+local function send ( ... )
+  send_with_callback(nil, ... )
+end
+
+-- Observe a property
+local function observe_property(name, callback)
+  observers[name] = callback
+  send("observe_property", 1, name)
+end
+
 -----------------------------------------------------------
 -- Remote events
 -----------------------------------------------------------
@@ -188,31 +216,30 @@ events.preaction = function(name)
 end
 
 -- Consume any responses from mpv after each action.
-events.postaction = function()
+local handle_response = function()
   -- Try to get a response from mpv.
-  -- Ideally, select() or poll() would be used instead, but needs more FFI.
-  for _=1,10 do
-    local resp = read()
-    if resp ~= nil then
-      -- mpv can send multiple JSON objects on each line.
-      for msg in resp:gmatch("([^\r\n]+)") do
-        if msg:match("^{") then
-          local tbl = data.fromjson(msg)
-          if tbl.error and tbl.error ~= "success" then
-            device.toast("Command failed")
-            log.warn("Error from mpv: "..msg)
-          end
-          -- If the message contains a request ID, it is a response to our command.
-          if tbl.request_id then
-            -- Flush any other messages/events.
-            repeat until read() == nil
-            -- Done for now.
-            return
-          end
+  local resp = read()
+  if resp ~= nil and resp:len() > 0 then
+    log.warn("Full response: " .. resp)
+    -- mpv can send multiple JSON objects on each line.
+    for msg in resp:gmatch("[^\r\n]+") do
+      if msg:match("^{") then
+        local tbl = data.fromjson(msg)
+        if tbl.error and tbl.error ~= "success" then
+          device.toast("Command failed")
+          log.warn("Error from mpv: "..msg)
         end
+        -- If the message contains a request ID, it is a response to our command.
+        if tbl.request_id and requests[tbl.request_id] then
+            requests[tbl.request_id](tbl)
+        end
+        -- If the message is an event, let the corresponding observer handle it
+        if tbl.event and listeners[tbl.event] then
+            listeners[tbl.event](tbl)
+        end
+        -- Flush any other messages/events.
       end
     end
-    os.sleep(50)
   end
 end
 
@@ -225,7 +252,9 @@ end
 -- Apparently some things happen with the internal state of the remote when it loses focus.
 events.focus = function()
   layout.input_ipc_server.text = settings.input_ipc_server
-  connect()
+  if connect() then
+    tid = libs.timer.interval(handle_response, 50)
+  end
 end
 
 -- Disconnect from mpv when losing focus.
