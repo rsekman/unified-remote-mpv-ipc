@@ -12,10 +12,6 @@
       <row weight="wrap">
         <slider id="seek_slider" progress="50" progressmax="100" onChange="seek" />
       </row>
-      <row>
-        <button image="res/icons/vmuted.png" onTap="volume_mute" />
-        <slider id="volume_slider" progress="50" progressmax="130" onChange="volume_set" />
-      </row>
       <row weight="wrap">
         <button icon="stop" onTap="stop" />
         <button icon="playpause" onTap="play_pause" />
@@ -25,6 +21,12 @@
         <button icon="rwd" onTap="backward" />
         <button icon="ff" onTap="forward" />
         <button icon="next" onTap="next" />
+      </row>
+      <row id="volume_control_row" weight="wrap">
+        <button weight="1" image="res/icons/vmuted.png" onTap="volume_mute" />
+        <button weight="1" icon="vdown" onTap="volume_down" />
+        <slider weight="7" id="volume_slider" progress="50" progressmax="100" onChange="volume_set" />
+        <button weight="1" icon="vup" onTap="volume_up" />
       </row>
       <row>
         <button text="OSD" onTap="osd" />
