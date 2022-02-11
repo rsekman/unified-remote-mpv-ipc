@@ -215,6 +215,14 @@ local function ui_update_volume(message)
   end
 end
 
+local function ui_update_mute(message)
+  if message.data == 0 then
+    layout.volume_slider.color = "green"
+  else
+    layout.volume_slider.color = "red"
+  end
+end
+
 -- Set the title
 local function ui_set_title(message)
   if message.data then
@@ -226,6 +234,8 @@ end
 local function initialize_ui()
   send_with_callback(ui_update_volume, "get_property", "volume")
   observe_property("volume", ui_update_volume)
+  send_with_callback(ui_update_mute, "get_property", "mute")
+  observe_property("mute", ui_update_mute)
   send_with_callback(ui_seek, "get_property", "percent-pos")
   observe_property("percent-pos", ui_seek)
   send_with_callback(ui_set_title, "get_property", "media-title")
