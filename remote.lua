@@ -3,6 +3,7 @@ local device = require("device")
 local ffi = require("ffi")
 local fs = libs.fs;
 local log = require("log")
+local server = require("server")
 
 -----------------------------------------------------------
 -- FFI interface
@@ -228,6 +229,7 @@ local function ui_set_title(message)
   if message.data then
     layout.media_title.text = message.data
   end
+  server.update( {"id = media-title", weight = "wrap" } )
 end
 
 -- Initialize the UI to reflect the current state
