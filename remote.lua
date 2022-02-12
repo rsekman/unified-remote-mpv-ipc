@@ -281,11 +281,11 @@ local handle_response = function()
         end
         -- If the message contains a request ID, it is a response to our command.
         if tbl.request_id and requests[tbl.request_id] then
-            requests[tbl.request_id](tbl)
+          requests[tbl.request_id](tbl)
         end
         -- If the message is an event, let the corresponding observer handle it
         if tbl.event and listeners[tbl.event] then
-            listeners[tbl.event](tbl)
+          listeners[tbl.event](tbl)
         end
         -- Flush any other messages/events.
       end
