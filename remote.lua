@@ -457,6 +457,16 @@ end
 actions.backward = function()
   send("seek", -10)
 end
+--
+--@help Previous chapter
+actions.previous_chapter = function()
+  send("add", "chapter", -1)
+end
+
+--@help Next chapter
+actions.next_chapter = function()
+  send("add", "chapter", 1)
+end
 
 --@help Back one frame
 actions.frame_back_step = function()
