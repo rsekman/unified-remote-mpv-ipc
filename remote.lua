@@ -232,6 +232,62 @@ local function ui_set_title(message)
   server.update( {"id = media-title", weight = "wrap" } )
 end
 
+--Initialize the subtitle and audio lists
+local function ui_update_track_lists(message)
+  if message.data == nil then
+    return nil
+  end
+  local sub_tracks = {
+    { type = "item", checked = true, text = "None" }
+  }
+  local audio_tracks = {}
+  local format_track = function (data)
+    if data.title ~= nil then
+      return string.format("%s (%s)", data.lang, data.title)
+    else
+      return data.lang
+    end
+  end
+  local make_track_item = function (data)
+      return { type = "item", checked = ( data.selected > 0 ) , text = format_track(data) }
+  end
+  for n, t in ipairs(message.data) do
+    local track = make_track_item(t)
+    if t.type == "sub" then
+      if t.selected > 0 then
+        sub_tracks[1].checked = false
+      end
+      track.ontap = function (index)
+        log.warn("sub tapped")
+        send("set_property", "sid", t.id)
+      end
+      table.insert( sub_tracks, track )
+    end
+    if t.type == "audio" then
+      table.insert( audio_tracks, track )
+    end
+  end
+  server.update( {id = "sub_list", children = sub_tracks } )
+  server.update( {id = "audio_list", children = audio_tracks } )
+
+end
+
+local function ui_update_sub_delay(message)
+  if message.data then
+    layout.sub_delay.text = string.format(
+      "%s ms", tostring(1000 * message.data)
+    )
+  end
+end
+
+local function ui_update_audio_delay(message)
+  if message.data then
+    layout.audio_delay.text = string.format(
+      "%s ms", tostring(1000 * message.data)
+    )
+  end
+end
+
 -- Initialize the UI to reflect the current state
 local function initialize_ui()
   send_with_callback(ui_update_volume, "get_property", "volume")
@@ -242,6 +298,17 @@ local function initialize_ui()
   observe_property("percent-pos", ui_seek)
   send_with_callback(ui_set_title, "get_property", "media-title")
   observe_property("media-title", ui_set_title)
+
+  send_with_callback(ui_update_track_lists, "get_property", "track-list")
+  listeners["track-switched"] = function()
+    send_with_callback(ui_update_track_lists, "get_property", "track-list")
+  end
+
+  send_with_callback(ui_update_sub_delay, "get_property", "sub-delay")
+  observe_property("sub-delay", ui_update_sub_delay)
+
+  send_with_callback(ui_update_audio_delay, "get_property", "audio-delay")
+  observe_property("audio-delay", ui_update_audio_delay)
 end
 
 
@@ -391,9 +458,24 @@ actions.backward = function()
   send("seek", -10)
 end
 
+--@help Back one frame
+actions.frame_back_step = function()
+  send("frame-back-step")
+end
+
+--@help Forward one frame
+actions.frame_step = function()
+  send("frame-step")
+end
+
 --@help Toggle play/pause state
 actions.play_pause = function()
   send("cycle", "pause")
+end
+
+--@help Take screenshot
+actions.screenshot = function()
+  send("screenshot")
 end
 
 --@help Stop playback
@@ -420,14 +502,27 @@ actions.osd = function()
   send("no-osd", "cycle-values", "osd-level", "3", "1")
 end
 
+--@help Set subtitle track
+actions.set_sub_id = function(index)
+  --list indices are 0-indexed and mpv 1-indexes, but we have a "None" option for subs
+  --so there is no off-by-one error
+  send("set_property", "sid", index)
+end
+
 --@help Increase subtitle delay
-actions.subtitle_delay_down = function()
+actions.sub_delay_down = function()
   send("add", "sub-delay", -0.1)
 end
 
 --@help Decrease subtitle delay
-actions.subtitle_delay_up = function()
+actions.sub_delay_up = function()
   send("add", "sub-delay", 0.1)
+end
+
+--@help Set audio track
+actions.set_audio_id = function(index)
+  --list indices are 0-indexed but mpv 1-indexes
+  send("set_property", "aid", index+1)
 end
 
 --@help Increase audio delay

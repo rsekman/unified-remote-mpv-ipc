@@ -9,18 +9,27 @@
       <row id="title_row">
         <label id="media_title" text="[Not Playing]" />
       </row>
-      <row weight="wrap">
+      <row weight="1">
         <slider id="seek_slider" progress="50" progressmax="100" onChange="seek" />
       </row>
-      <row weight="wrap">
+      <row id="playback_control">
         <button icon="stop" onTap="stop" />
         <button icon="playpause" onTap="play_pause" />
       </row>
-      <row weight="wrap">
-        <button icon="previous" onTap="previous" />
+      <row id="seeking" weight="1">
+        <button icon="previous" onTap="previous_chapter" />
         <button icon="rwd" onTap="backward" />
         <button icon="ff" onTap="forward" />
-        <button icon="next" onTap="next" />
+        <button icon="next" onTap="next_chapter" />
+      </row>
+      <row id="playlist_row" weight="wrap">
+        <button text="Prev file" onTap="previous" />
+        <button text="Next file" onTap="next" />
+      </row>
+      <row id="frame_row" weight="1">
+        <button icon="docleft" onTap="frame_back_step" />
+        <button icon="camera" onTap="screenshot" />
+        <button icon="docright" onTap="frame_step" />
       </row>
       <row id="volume_control_row" weight="wrap">
         <button weight="1" image="res/icons/vmuted.png" onTap="volume_mute" />
@@ -32,36 +41,41 @@
         <button text="OSD" onTap="osd" />
         <button icon="fullscreen" onTap="fullscreen" />
       </row>
+      <row weight="wrap">
+        <label color="hard" text="Playback speed" />
+      </row>
+      <row weight="wrap">
+        <button icon="rwd" onTap="playback_speed_down" />
+        <button text="1x" onTap="playback_speed_reset" />
+        <button icon="ff" onTap="playback_speed_up" />
+      </row>
     </tab>
-    <tab text="Audio/Subtitles">
-      <row weight="wrap">
-        <label color="hard" text="Subtitle options" />
-      </row>
-      <row>
-        <button text="Toggle" onTap="toggle_subs" />
-        <button text="Switch" onTap="switch_subs" />
-      </row>
-      <row weight="wrap">
-        <label color="hard" text="Subtitle delay" />
-      </row>
-      <row>
-        <button icon="down" onTap="subtitle_delay_down" />
-        <button icon="up" onTap="subtitle_delay_up" />
+    <tab text="Audio">
+      <row weight="5">
+        <list id="audio_list" onTap="set_audio_id">
+        </list>
       </row>
       <row weight="wrap">
         <label color="hard" text="Audio delay" />
       </row>
-      <row >
+      <row weight="wrap">
         <button icon="down" onTap="audio_delay_down" />
+        <label weight="6" text="0 ms" id="audio_delay" />
         <button icon="up" onTap="audio_delay_up" />
       </row>
-      <row weight="wrap">
-        <label color="hard" text="Playback speed" />
+    </tab>
+    <tab text="Subtitles">
+      <row weight="5" id = "sub_row">
+        <list id="sub_list" onTap="set_sub_id">
+        </list>
       </row>
-      <row >
-        <button icon="rwd" onTap="playback_speed_down" />
-        <button icon="play" onTap="playback_speed_reset" />
-        <button icon="ff" onTap="playback_speed_up" />
+      <row weight="wrap">
+        <label color="hard" text="Subtitle delay" />
+      </row>
+      <row weight="wrap">
+        <button weight="1" icon="down" text="-100 ms" onTap="sub_delay_down" />
+        <label weight="6" text="0 ms" id="sub_delay" />
+        <button weight="1" icon="up" text="+100 ms" onTap="sub_delay_up" />
       </row>
     </tab>
   </tabs>
