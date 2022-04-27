@@ -22,9 +22,14 @@ A remote for [Unified Remote](https://www.unifiedremote.com/) to control [mpv](h
 
 **Drawbacks of IPC:**
 
+* ***IPC can be a security risk***
+
+    mpv's IPC protocol by design features no authentication or encryption, and exposes mpv's ability to execute arbitrary commands. Make sure the IPC socket has appropriate permissions (i.e. readable and writeable only by the users running `mpv` and `urserver`). It is a good idea to only run `urserver` behind a firewall on a trusted network and to enable its authentication feature.
+
 * IPC must be configured
 
   The IPC is not enabled by default in mpv. See usage below.
+
 
 * No support for Microsoft Windows
 
