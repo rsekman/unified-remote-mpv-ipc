@@ -78,5 +78,14 @@
         <button weight="1" icon="up" text="+100 ms" onTap="sub_delay_up" />
       </row>
     </tab>
+    <tab text="Browse">
+        <row weight="0">
+            <text id="working_directory" hint="Current directory" text="" onDone="change_directory" />
+        </row>
+        <row weight="5">
+            <list id="files_list" onTap="open_file">
+            </list>
+        </row>
+    </tab>
   </tabs>
 </layout>

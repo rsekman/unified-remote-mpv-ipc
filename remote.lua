@@ -258,7 +258,6 @@ local function ui_update_track_lists(message)
         sub_tracks[1].checked = false
       end
       track.ontap = function (index)
-        log.warn("sub tapped")
         send("set_property", "sid", t.id)
       end
       table.insert( sub_tracks, track )
@@ -287,6 +286,67 @@ local function ui_update_audio_delay(message)
     )
   end
 end
+
+local change_directory, ui_list_directory, open_file
+
+directory_contents = {}
+
+ui_list_directory = function ()
+  local wd = settings.working_directory
+  if not fs.exists(wd) then
+    return
+  end
+  directory_contents = {}
+
+  local make_file_item = function (path, title)
+      return {
+        type = "item",
+        checked = false,
+        text = title,
+        ontap = function ()
+          open_file(path)
+        end
+      }
+  end
+
+  parent_dir = fs.parent(wd)
+  if parent_dir ~= wd then
+    local parent = make_file_item(fs.parent(wd), "↩️ ".. fs.parent(wd))
+    table.insert(directory_contents, parent)
+  end
+
+  for i, d in ipairs(fs.dirs(wd)) do
+    local di = make_file_item(d, "📁" .. fs.fullname(d) .. "/")
+    table.insert(directory_contents, di)
+  end
+
+  for i, f in ipairs(fs.files(wd)) do
+    local fi = make_file_item(f, fs.fullname(f))
+    table.insert(directory_contents, fi)
+  end
+
+  server.update( {id = "files_list", children = directory_contents } )
+end
+
+local function launch_mpv(path)
+  os.start("mpv", path)
+end
+
+open_file = function (path)
+  if not fs.exists(path) then
+    return
+  end
+  if fs.isdir(path) then
+    actions.change_directory(path)
+  elseif fs.isfile(path) then
+    launch_mpv(path)
+  end
+end
+
+actions.open_file = function (index)
+  directory_contents[index+1].ontap()
+end
+
 
 -- Initialize the UI to reflect the current state
 local function initialize_ui()
@@ -319,7 +379,8 @@ end
 -- Always allow a few actions, without trying to connect.
 local allow = {
   onoff = true,
-  update_ipc = true
+  update_ipc = true,
+  open_file = true
 }
 
 -- Try to establish the connection before each action.
@@ -365,12 +426,19 @@ end
 -- Set the input field when loading the remote.
 events.preload = function()
   layout.input_ipc_server.text = settings.input_ipc_server
+  actions.change_directory(settings.working_directory)
 end
 
 -- Set the input field when the remote gains focus, and try to connect.
 -- Apparently some things happen with the internal state of the remote when it loses focus.
 events.focus = function()
   layout.input_ipc_server.text = settings.input_ipc_server
+  if settings.working_directory == "" or settings.working_directory == nil then
+    settings.working_directory = fs.homedir()
+  end
+  actions.change_directory(settings.working_directory)
+  ui_list_directory()
+
   if connect() then
     initialize_ui()
     tid = libs.timer.interval(handle_response, 50)
@@ -411,6 +479,12 @@ actions.update_ipc = function(path)
   settings.input_ipc_server = path
   disconnect()
   connect()
+end
+
+actions.change_directory = function (path)
+  settings.working_directory = path
+  layout.working_directory.text = path
+  ui_list_directory()
 end
 
 --@help Lower volume
