@@ -400,6 +400,12 @@ initialize_ui = function ()
     send_with_callback(ui_update_track_lists, "get_property", "track-list")
   end
 
+  listeners["end-file"] = function(message)
+    if message["reason"] == "quit" then
+      disconnect()
+    end
+  end
+
   send_with_callback(ui_update_sub_delay, "get_property", "sub-delay")
   observe_property("sub-delay", ui_update_sub_delay)
 
