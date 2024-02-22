@@ -57,6 +57,7 @@ end
 -----------------------------------------------------------
 
 local fd = nil
+local initialize_ui, deinitalize_ui
 
 -- Disconnect from mpv, resetting some values.
 local function disconnect()
@@ -72,10 +73,15 @@ local function disconnect()
 
   layout.onoff.icon = "off"
   layout.onoff.color = "red"
+
+  deinitalize_ui()
 end
 
+
+local handle_response
+
 -- Connect to mpv at the given path.
-local function connect(path)
+local function _connect(path)
   -- Make sure we start off in a disconnected state.
   disconnect()
 
@@ -121,10 +127,32 @@ local function connect(path)
     return false
   end
 
+  tid = libs.timer.interval(handle_response, 50)
+
   layout.onoff.icon = "on"
   layout.onoff.color = "green"
 
+  initialize_ui()
+
   return true
+end
+
+-- Connect with retries and timeout
+-- path: the path to the mpv socket
+-- retries: number of attempts to make
+-- interval: interval between each attempt in milliseconds
+local function connect(...)
+  path = select(1, ...) or settings.input_ipc_server
+  retries = select(2, ...) or 1
+  interval = select(3, ...) or 50
+  for i = 1, retries do
+    if _connect(path) then
+      return true
+    elseif i ~= retries then
+      os.sleep(50)
+    end
+  end
+  return false
 end
 
 -- Send a command to mpv, registering a callback to handle any responses
@@ -349,7 +377,7 @@ end
 
 
 -- Initialize the UI to reflect the current state
-local function initialize_ui()
+initialize_ui = function ()
   send_with_callback(ui_update_volume, "get_property", "volume")
   observe_property("volume", ui_update_volume)
   send_with_callback(ui_update_mute, "get_property", "mute")
@@ -371,6 +399,11 @@ local function initialize_ui()
   observe_property("audio-delay", ui_update_audio_delay)
 end
 
+-- Deinitialize the UI when we disconnect from mpv
+deinitalize_ui = function (...)
+    layout.media_title.text = "Not playing"
+    layout.volume_slider.progress = "50"
+end
 
 -----------------------------------------------------------
 -- Remote events
@@ -397,7 +430,7 @@ events.preaction = function(name)
 end
 
 -- Consume any responses from mpv after each action.
-local handle_response = function()
+handle_response = function()
   -- Try to get a response from mpv.
   local resp = read()
   if resp ~= nil and resp:len() > 0 then
@@ -433,16 +466,14 @@ end
 -- Apparently some things happen with the internal state of the remote when it loses focus.
 events.focus = function()
   layout.input_ipc_server.text = settings.input_ipc_server
+
   if settings.working_directory == "" or settings.working_directory == nil then
     settings.working_directory = fs.homedir()
   end
   actions.change_directory(settings.working_directory)
   ui_list_directory()
 
-  if connect() then
-    initialize_ui()
-    tid = libs.timer.interval(handle_response, 50)
-  end
+  connect()
 end
 
 -- Disconnect from mpv when losing focus.
@@ -468,6 +499,7 @@ end
 actions.onoff = function()
   if fd then
     disconnect()
+    deinitalize_ui()
   else
     connect()
   end
@@ -564,7 +596,7 @@ end
 
 --@help Stop playback
 actions.stop = function()
-  send("quit")
+  send_with_callback(deinitalize_ui, "quit")
 end
 
 --@help Cycle through subtitles
