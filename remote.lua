@@ -315,45 +315,24 @@ local function ui_update_audio_delay(message)
   end
 end
 
-local change_directory, ui_list_directory, open_file
+local change_directory
 
 directory_contents = {}
 
-ui_list_directory = function ()
-  local wd = settings.working_directory
-  if not fs.exists(wd) then
-    return
+local function file_sorter(a, b)
+  --Always put directories first
+  if a["mode"] == "directory" and b["mode"] ~= "directory" then
+    return true
+  elseif a["mode"] ~= "directory" and b["mode"] == "directory" then
+    return false
+  else
+    local key = settings.sort_files_by
+    if settings.sort_order == "ascending" then
+      return a[key] < b[key]
+    else
+      return a[key] > b[key]
+    end
   end
-  directory_contents = {}
-
-  local make_file_item = function (path, title)
-      return {
-        type = "item",
-        checked = false,
-        text = title,
-        ontap = function ()
-          open_file(path)
-        end
-      }
-  end
-
-  parent_dir = fs.parent(wd)
-  if parent_dir ~= wd then
-    local parent = make_file_item(fs.parent(wd), "↩️ ".. fs.parent(wd))
-    table.insert(directory_contents, parent)
-  end
-
-  for i, d in ipairs(fs.dirs(wd)) do
-    local di = make_file_item(d, "📁" .. fs.fullname(d) .. "/")
-    table.insert(directory_contents, di)
-  end
-
-  for i, f in ipairs(fs.files(wd)) do
-    local fi = make_file_item(f, fs.fullname(f))
-    table.insert(directory_contents, fi)
-  end
-
-  server.update( {id = "files_list", children = directory_contents } )
 end
 
 local function play_with_mpv(path)
@@ -365,7 +344,7 @@ local function play_with_mpv(path)
   end
 end
 
-open_file = function (path)
+local function open_file (path)
   if not fs.exists(path) then
     return
   end
@@ -379,10 +358,99 @@ open_file = function (path)
   end
 end
 
-actions.open_file = function (index)
-  directory_contents[index+1].ontap()
+local function ui_list_directory()
+  local wd = settings.working_directory
+  if not fs.exists(wd) then
+    return
+  end
+  directory_contents = {}
+
+  local make_file_item = function (dir_entry)
+    local title
+    if dir_entry["mode"] == "directory" then
+      title = "📁" .. dir_entry["name"] .. "/"
+    else
+      title = dir_entry["name"]
+    end
+      return {
+        type = "item",
+        checked = false,
+        text = title,
+        ontap = function ()
+          open_file(dir_entry["path"])
+        end
+      }
+  end
+
+  local dir_entries = {}
+  local make_dir_entry = function(path)
+    return {
+      path = path,
+      name = fs.fullname(path),
+      size = fs.size(path),
+      created = fs.created(path),
+      modified = fs.modified(path)
+    }
+  end
+  for i, dname in ipairs(fs.dirs(wd)) do
+    local e = make_dir_entry(dname)
+    e["mode"] = "directory"
+    table.insert(dir_entries, e)
+  end
+
+  for i, fname in ipairs(fs.files(wd)) do
+    local e = make_dir_entry(fname)
+    e["mode"] = "file"
+    table.insert(dir_entries, e)
+  end
+  table.sort(dir_entries, file_sorter)
+
+  for i, f in ipairs(dir_entries) do
+    local fi = make_file_item(f)
+    table.insert(directory_contents, fi)
+  end
+
+  parent_dir = fs.parent(wd)
+  if parent_dir ~= wd then
+    local parent = {
+      type = "item",
+      checked = false,
+      text = "↩️ ".. parent_dir,
+      ontap = function() open_file(parent_dir) end
+    }
+    table.insert(directory_contents, 1, parent)
+  end
+
+  server.update( {id = "files_list", children = directory_contents } )
 end
 
+local function ui_update_selected_sort_key (prev)
+  local key = settings.sort_files_by
+
+  local capitalize = function(s)
+    return s:sub(1, 1):upper() .. s:sub(2, -1)
+  end
+
+  log.info("setting sort key to " .. key .. " was " .. (prev or "unset"))
+  if prev ~= nil and prev ~= key then
+    server.update( {
+        id = "sort_by_" .. prev,
+        checked = false,
+        text = capitalize(prev)
+    })
+  end
+  local order
+  if settings.sort_order == "ascending" then
+    order = "🔼"
+  else
+    order = "🔽"
+  end
+  server.update( {
+    id = "sort_by_" .. key,
+    checked = true,
+    text = capitalize(key) .. order
+  })
+end
 
 -- Initialize the UI to reflect the current state
 initialize_ui = function ()
@@ -427,8 +495,11 @@ end
 local allow = {
   onoff = true,
   update_ipc = true,
-  change_directory = true,
-  open_file = true
+  open_file = true,
+  set_file_sort_key_name = true,
+  set_file_sort_key_created = true,
+  set_file_sort_key_modified = true,
+  set_file_sort_key_size = true,
 }
 
 -- Try to establish the connection before each action.
@@ -471,22 +542,32 @@ handle_response = function()
   end
 end
 
--- Set the input field when loading the remote.
-events.preload = function()
+local load_settings = function ()
   layout.input_ipc_server.text = settings.input_ipc_server
-  actions.change_directory(settings.working_directory)
+
+  if settings.working_directory == "" or settings.working_directory == nil then
+    actions.change_directory(fs.homedir())
+  end
+
+  if settings.sort_order == nil then
+    settings.sort_order = "ascending"
+  end
+  if settings.sort_files_by == "" or settings.sort_files_by == nil then
+    actions.set_file_sort_key("name")
+  end
+end
+
+-- Set the input field when loading the remote.
+events.create = function()
+  load_settings()
 end
 
 -- Set the input field when the remote gains focus, and try to connect.
 -- Apparently some things happen with the internal state of the remote when it loses focus.
 events.focus = function()
-  layout.input_ipc_server.text = settings.input_ipc_server
-
-  if settings.working_directory == "" or settings.working_directory == nil then
-    settings.working_directory = fs.homedir()
-  end
-  actions.change_directory(settings.working_directory)
+  load_settings()
   ui_list_directory()
+  ui_update_selected_sort_key()
 
   connect()
 end
@@ -533,6 +614,28 @@ actions.change_directory = function (path)
   layout.working_directory.text = path
   ui_list_directory()
 end
+
+actions.open_file = function (index)
+  directory_contents[index+1].ontap()
+end
+
+local function set_file_sort_key(sort_key)
+  local prev = settings.sort_files_by
+  settings.sort_files_by = sort_key
+  if prev ~= sort_key or settings.sort_order == "descending" then
+    settings.sort_order = "ascending"
+  else
+    settings.sort_order = "descending"
+  end
+
+  ui_update_selected_sort_key(prev)
+  ui_list_directory()
+end
+
+actions.set_file_sort_key_name = function() set_file_sort_key("name") end
+actions.set_file_sort_key_created = function() set_file_sort_key("created") end
+actions.set_file_sort_key_modified = function() set_file_sort_key("modified") end
+actions.set_file_sort_key_size = function() set_file_sort_key("size") end
 
 --@help Lower volume
 actions.volume_down = function()

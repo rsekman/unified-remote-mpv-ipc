@@ -1,2 +1,1 @@
 input_ipc_server: /tmp/mpv-socket
-working_directory: /mnt/nfs/Fezzan/karl
