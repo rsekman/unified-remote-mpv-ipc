@@ -79,6 +79,33 @@
       </row>
     </tab>
     <tab text="Browse">
+        <row id="sort_key_row" weight="0">
+          <label weight="0" text = "Sort by" />
+          <toggle
+            text="Name"
+            id="sort_by_name"
+            color = "black"
+            ontap="set_file_sort_key_name"
+          />
+          <toggle
+            text="Created"
+            id="sort_by_created"
+            color = "black"
+            ontap="set_file_sort_key_created"
+          />
+          <toggle
+            text="Modified"
+            id="sort_by_modified"
+            color = "black"
+            ontap="set_file_sort_key_modified"
+          />
+          <toggle
+            text="Size"
+            id="sort_by_size"
+            color = "black"
+            ontap="set_file_sort_key_size"
+          />
+        </row>
         <row weight="0">
             <text id="working_directory" hint="Current directory" text="" onDone="change_directory" />
         </row>
