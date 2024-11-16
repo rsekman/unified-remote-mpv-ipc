@@ -360,6 +360,8 @@ end
 local function ui_list_directory()
   local wd = settings.working_directory
   if not fs.exists(wd) then
+    log.warn("Directory " .. wd .. " does not exist; resetting to $HOME")
+    actions.change_directory(fs.homedir())
     return
   end
   directory_contents = {}
@@ -495,6 +497,7 @@ local allow = {
   onoff = true,
   update_ipc = true,
   open_file = true,
+  change_directory = true,
   set_file_sort_key_name = true,
   set_file_sort_key_created = true,
   set_file_sort_key_modified = true,

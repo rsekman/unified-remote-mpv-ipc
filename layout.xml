@@ -107,7 +107,7 @@
           />
         </row>
         <row weight="0">
-            <text id="working_directory" hint="Current directory" text="" onDone="change_directory" />
+            <text id="working_directory" hint="Current directory" ondone="change_directory" />
         </row>
         <row weight="5">
             <list id="files_list" onTap="open_file">
