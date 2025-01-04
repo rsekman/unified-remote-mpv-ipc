@@ -371,8 +371,10 @@ local function play_with_mpv(path)
   if tid then
     send("loadfile", path)
   else
-    -- & to detach the mpv process
-    os.start("mpv", path, "&")
+    os.start("mpv", path)
+    -- it can take some time for mpv to create the socket, so we will make 10
+    -- attempts to connect at 50 ms intervals
+    connect(settings.input_ipc_server, 10, 50)
   end
 end
 
@@ -384,9 +386,6 @@ local function open_file (path)
     actions.change_directory(path)
   elseif fs.isfile(path) then
     play_with_mpv(path)
-    -- it can take some time for mpv to create the socket, so we will make 10
-    -- attempts to connect at 50 ms intervals
-    connect(settings.input_ipc_server, 10, 50)
   end
 end
 
