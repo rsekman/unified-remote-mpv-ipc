@@ -95,6 +95,7 @@ local function _connect(path)
     end
   }
   observers = {}
+  property_cache = {}
 
   -- Use the supplied path, or the one from the settings.
   path = path or settings.input_ipc_server
@@ -230,10 +231,41 @@ end
 -- UI handlers
 ----------------------------------------------------------
 
+local function fmt_time(t)
+    local s = t % 60;
+    t = math.floor(t / 60);
+    local min = t % 60;
+    t = math.floor(t / 60);
+    local hr = t;
+
+    if hr > 0 then
+      return string.format("%02d:%02d:%02d", hr, min, s)
+    else
+      return string.format("%02d:%02d", min, s)
+    end
+end
+
+-- Store duration
+local function ui_set_duration(message)
+  if message.data then
+    property_cache["duration"] = message.data
+  end
+end
+
 -- Update the seekbar
 local function ui_seek(message)
+  if duration == nil then
+    return
+  end
   if message.data then
-    layout.seek_slider.progress = string.format("%2.0f", message.data)
+    local duration = property_cache["duration"]
+    local progress = message.data
+    local pos = 100 * progress/duration
+    layout.seek_slider.progress = string.format("%2.0f", pos)
+
+    local p_str = fmt_time(progress)
+    local d_str = fmt_time(duration)
+    layout.seek_slider.text = string.format("%s / %s", p_str, d_str)
   end
 end
 
@@ -458,8 +490,12 @@ initialize_ui = function ()
   observe_property("volume", ui_update_volume)
   send_with_callback(ui_update_mute, "get_property", "mute")
   observe_property("mute", ui_update_mute)
-  send_with_callback(ui_seek, "get_property", "percent-pos")
-  observe_property("percent-pos", ui_seek)
+
+  send_with_callback(ui_set_duration, "get_property", "duration")
+  observe_property("duration", ui_seek)
+  send_with_callback(ui_seek, "get_property", "time-pos")
+  observe_property("time-pos", ui_seek)
+
   send_with_callback(ui_set_title, "get_property", "media-title")
   observe_property("media-title", ui_set_title)
 
