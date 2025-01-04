@@ -589,7 +589,7 @@ local load_settings = function ()
     settings.sort_order = "ascending"
   end
   if settings.sort_files_by == "" or settings.sort_files_by == nil then
-    actions.set_file_sort_key("name")
+    actions.set_file_sort_key_name()
   end
 end
 
