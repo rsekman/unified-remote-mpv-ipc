@@ -254,11 +254,11 @@ end
 
 -- Update the seekbar
 local function ui_seek(message)
+  local duration = property_cache["duration"]
   if duration == nil then
     return
   end
   if message.data then
-    local duration = property_cache["duration"]
     local progress = message.data
     local pos = 100 * progress/duration
     layout.seek_slider.progress = string.format("%2.0f", pos)
