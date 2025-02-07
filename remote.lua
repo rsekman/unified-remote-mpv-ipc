@@ -507,9 +507,7 @@ initialize_ui = function ()
   observe_property("media-title", ui_set_title)
 
   send_with_callback(ui_update_track_lists, "get_property", "track-list")
-  listeners["track-switched"] = function()
-    send_with_callback(ui_update_track_lists, "get_property", "track-list")
-  end
+  observe_property("track-list", ui_update_track_lists)
 
   listeners["end-file"] = function(message)
     if message["reason"] == "quit" then
