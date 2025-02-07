@@ -250,6 +250,7 @@ local function ui_set_duration(message)
   if message.data then
     property_cache["duration"] = message.data
   end
+  ui_seek()
 end
 
 -- Update the seekbar
@@ -493,7 +494,7 @@ initialize_ui = function ()
   observe_property("mute", ui_update_mute)
 
   send_with_callback(ui_set_duration, "get_property", "duration")
-  observe_property("duration", ui_seek)
+  observe_property("duration", ui_set_duration)
   send_with_callback(ui_seek, "get_property", "time-pos")
   observe_property("time-pos", ui_seek)
 
