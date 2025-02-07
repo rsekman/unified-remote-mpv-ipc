@@ -227,6 +227,18 @@ local function observe_property(name, callback)
   send("observe_property", 1, name)
 end
 
+-- Create a callback that will cache a property, then continue with another callback
+local function cache_callback(property, and_then)
+  return function(message)
+    if message.data then
+      property_cache[property] = message.data
+    end
+    if and_then then
+      and_then()
+    end
+  end
+end
+
 ----------------------------------------------------------
 -- UI handlers
 ----------------------------------------------------------
@@ -245,29 +257,21 @@ local function fmt_time(t)
     end
 end
 
--- Store duration
-local function ui_set_duration(message)
-  if message.data then
-    property_cache["duration"] = message.data
-  end
-  ui_seek()
-end
-
 -- Update the seekbar
-local function ui_seek(message)
+local function ui_seek()
+  log.info("this is ui_seek")
   local duration = property_cache["duration"]
-  if duration == nil then
+  local progress = property_cache["time-pos"]
+  if duration == nil or progress == nil then
     return
   end
-  if message.data then
-    local progress = message.data
-    local pos = 100 * progress/duration
-    layout.seek_slider.progress = string.format("%2.0f", pos)
 
-    local p_str = fmt_time(progress)
-    local d_str = fmt_time(duration)
-    layout.seek_slider.text = string.format("%s / %s", p_str, d_str)
-  end
+  local pos = 100 * progress/duration
+  layout.seek_slider.progress = string.format("%2.0f", pos)
+
+  local p_str = fmt_time(progress)
+  local d_str = fmt_time(duration)
+  layout.seek_slider.text = string.format("%s / %s", p_str, d_str)
 end
 
 -- Update the volume bar
@@ -329,7 +333,6 @@ local function ui_update_track_lists(message)
   end
   server.update( {id = "sub_list", children = sub_tracks } )
   server.update( {id = "audio_list", children = audio_tracks } )
-
 end
 
 local function ui_update_sub_delay(message)
@@ -493,10 +496,12 @@ initialize_ui = function ()
   send_with_callback(ui_update_mute, "get_property", "mute")
   observe_property("mute", ui_update_mute)
 
-  send_with_callback(ui_set_duration, "get_property", "duration")
-  observe_property("duration", ui_set_duration)
-  send_with_callback(ui_seek, "get_property", "time-pos")
-  observe_property("time-pos", ui_seek)
+  local props = { "duration", "time-pos" }
+  for n, p in ipairs(props) do
+    local cb = cache_callback(p, ui_seek)
+    send_with_callback(cb, "get_property", p)
+    observe_property(p, cb)
+  end
 
   send_with_callback(ui_set_title, "get_property", "media-title")
   observe_property("media-title", ui_set_title)
