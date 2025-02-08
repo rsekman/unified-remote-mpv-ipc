@@ -320,7 +320,6 @@ end
 
 -- Initialize the UI to reflect the current state
 local initialize = function ()
-  list_directory()
   update_selected_sort_key()
 
   mpv.send_with_callback(update_volume, "get_property", "volume")

@@ -48,6 +48,7 @@ local load_settings = function ()
   if settings.sort_files_by == "" or settings.sort_files_by == nil then
     actions.set_file_sort_key_name()
   end
+  ui.list_directory()
 end
 
 -- Set the input field when loading the remote.
