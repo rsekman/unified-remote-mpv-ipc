@@ -99,9 +99,6 @@ local function update_track_lists(message)
       if t.selected > 0 then
         sub_tracks[1].checked = false
       end
-      track.ontap = function (index)
-        mpv.send("set_property", "sid", t.id)
-      end
       table.insert( sub_tracks, track )
     end
     if t.type == "audio" then
