@@ -4,6 +4,8 @@ local server = require("server")
 
 local mpv = require("mpv")
 
+local nop = function (...) end
+
 local property_cache = {}
 -- Create a callback that will cache a property, then continue with another callback
 local function cache_callback(property, and_then)
@@ -11,9 +13,7 @@ local function cache_callback(property, and_then)
     if message.data then
       property_cache[property] = message.data
     end
-    if and_then then
-      and_then()
-    end
+    (and_then or nop)(message)
   end
 end
 

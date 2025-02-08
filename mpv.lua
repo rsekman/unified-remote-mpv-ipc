@@ -54,6 +54,7 @@ end
 -- IPC interface
 -----------------------------------------------------------
 
+local nop = function (...) end
 local fd = nil
 
 -- Disconnect from mpv, resetting some values.
@@ -68,9 +69,7 @@ local function disconnect(and_then)
     tid = nil
   end
 
-  if and_then ~= nil then
-    and_then()
-  end
+  (and_then or nop)()
   layout.onoff.icon = "off"
   layout.onoff.color = "red"
 end
@@ -143,7 +142,7 @@ local function connect(...)
   if fd then
     return true
   end
-  and_then = select(1, ...) or function () end
+  and_then = select(1, ...) or nop
   retries = select(2, ...) or 1
   interval = select(3, ...) or 50
   for i = 1, retries do
