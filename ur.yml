@@ -1,0 +1,16 @@
+---
+base: lua51
+name: ur
+globals:
+  actions:
+    any: true
+  device:
+    any: true
+  events:
+    any: true
+  layout:
+    any: true
+  server:
+    any: true
+  settings:
+    any: true

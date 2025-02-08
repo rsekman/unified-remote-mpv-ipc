@@ -1,7 +1,9 @@
 local data = require("data")
 local device = require("device")
 local ffi = require("ffi")
+local fs = require("fs")
 local log = require("log")
+local timer = require("timer")
 
 -----------------------------------------------------------
 -- FFI interface
@@ -54,8 +56,13 @@ end
 -- IPC interface
 -----------------------------------------------------------
 
-local nop = function (...) end
+local nop = function () end
 local fd = nil
+local tid = nil
+local requests = {}
+local next_request_id = 1
+local listeners = {}
+local observers = {}
 
 -- Disconnect from mpv, resetting some values.
 local function disconnect(and_then)
@@ -65,7 +72,7 @@ local function disconnect(and_then)
   end
 
   if tid then
-    libs.timer.cancel(tid)
+    timer.cancel(tid)
     tid = nil
   end
 
@@ -92,7 +99,6 @@ local function _connect(path)
     end
   }
   observers = {}
-  property_cache = {}
 
   -- Use the supplied path, or the one from the settings.
   path = path or settings.input_ipc_server
@@ -101,7 +107,7 @@ local function _connect(path)
   if not path or path == "" then
     device.toast("No mpv IPC path configured.")
     return false
-  elseif not events.detect() then
+  elseif not fs.exists(path) then
     device.toast("No mpv IPC server at '"..path.."'")
     return false
   end
@@ -125,7 +131,7 @@ local function _connect(path)
     return false
   end
 
-  tid = libs.timer.interval(handle_response, 50)
+  tid = timer.interval(handle_response, 50)
 
   layout.onoff.icon = "on"
   layout.onoff.color = "green"
@@ -142,15 +148,15 @@ local function connect(...)
   if fd then
     return true
   end
-  and_then = select(1, ...) or nop
-  retries = select(2, ...) or 1
-  interval = select(3, ...) or 50
+  local and_then = select(1, ...) or nop
+  local retries = select(2, ...) or 1
+  local interval = select(3, ...) or 50
   for i = 1, retries do
     if _connect(settings.input_ipc_server) then
       and_then()
       return true
     elseif i ~= retries then
-      os.sleep(50)
+      os.sleep(interval)
     end
   end
   return false
@@ -269,6 +275,5 @@ return {
   toggle_connection = toggle_connection,
   send = send,
   send_with_callback = send_with_callback,
-  handle_response = handle_response,
   observe_property = observe_property,
 }

@@ -1,10 +1,10 @@
-local fs = libs.fs;
+local fs = require("fs")
 local log = require("log")
 local server = require("server")
 
 local mpv = require("mpv")
 
-local nop = function (...) end
+local nop = function () end
 
 local property_cache = {}
 -- Create a callback that will cache a property, then continue with another callback
@@ -35,7 +35,8 @@ local function fmt_time(t)
     end
 end
 
-local function mark_current_chapter(message)
+local chapters = {}
+local function mark_current_chapter()
   local progress = property_cache["time-pos"]
   if progress == nil or chapters == nil then
     return
@@ -48,8 +49,8 @@ local function mark_current_chapter(message)
     end
     prev_begin = ch.time
   end
-  if prev_begin <= progress then
-     -- chapters[n].checked = true
+  if #chapters > 0 and prev_begin <= progress then
+    chapters[#chapters].checked = true
   end
 
   server.update( {id = "chapter_list", children = chapters } )
@@ -57,7 +58,6 @@ end
 
 -- Initialize the chapter list
 local function make_chapter_list(message)
-  log.info("making chapter list")
   chapters = {}
   local make_chapter_item = function (data, n)
       return {
@@ -68,21 +68,21 @@ local function make_chapter_list(message)
       }
   end
 
-  for n, t in ipairs(message.data) do
+  for _, t in ipairs(message.data) do
     local chapter = make_chapter_item(t)
     table.insert(chapters, chapter)
   end
 
-  mark_current_chapter(message)
+  mark_current_chapter()
 end
 
 -- Update the seekbar
 local function update_seekbar()
-  mark_current_chapter(message)
+  mark_current_chapter()
 
   local duration = property_cache["duration"]
   local progress = property_cache["time-pos"]
-if duration == nil or progress == nil then
+  if duration == nil or progress == nil then
     return
   end
 
@@ -114,7 +114,7 @@ local function set_title(message)
   if message.data then
     layout.media_title.text = message.data
   end
-  server.update( {"id = media-title", weight = "wrap" } )
+  server.update( {id = "media-title", weight = "wrap" } )
 end
 
 --Initialize the subtitle and audio lists
@@ -136,7 +136,7 @@ local function update_track_lists(message)
   local make_track_item = function (data)
       return { type = "item", checked = ( data.selected > 0 ) , text = format_track(data) }
   end
-  for n, t in ipairs(message.data) do
+  for _, t in ipairs(message.data) do
     local track = make_track_item(t)
     if t.type == "sub" then
       if t.selected > 0 then
@@ -168,9 +168,81 @@ local function update_audio_delay(message)
   end
 end
 
-local change_directory
+local prev_sort_key = settings.sort_files_by
+local function update_selected_sort_key()
+  local key = settings.sort_files_by
 
-directory_contents = {}
+  local capitalize = function(s)
+    return s:sub(1, 1):upper() .. s:sub(2, -1)
+  end
+
+  local prev = prev_sort_key
+  if prev ~= nil and prev ~= key then
+    server.update( {
+        id = "sort_by_" .. prev,
+        checked = false,
+        text = capitalize(prev)
+    })
+  end
+  local order
+  if settings.sort_order == "ascending" then
+    order = "🔼"
+  else
+    order = "🔽"
+  end
+  server.update( {
+    id = "sort_by_" .. key,
+    checked = true,
+    text = capitalize(key) .. order
+  })
+  prev_sort_key = key
+end
+
+-- Deinitialize the UI when we disconnect from mpv
+local deinitalize = function ()
+    layout.media_title.text = "Not playing"
+    layout.volume_slider.progress = "50"
+end
+
+-- Initialize the UI to reflect the current state
+local function initialize()
+  mpv.send_with_callback(update_volume, "get_property", "volume")
+  mpv.observe_property("volume", update_volume)
+  mpv.send_with_callback(update_mute, "get_property", "mute")
+  mpv.observe_property("mute", update_mute)
+
+  local props = { "duration", "time-pos" }
+  for _, p in ipairs(props) do
+    local cb = cache_callback(p, update_seekbar)
+    mpv.send_with_callback(cb, "get_property", p)
+    mpv.observe_property(p, cb)
+  end
+
+  mpv.send_with_callback(set_title, "get_property", "media-title")
+  mpv.observe_property("media-title", set_title)
+
+  mpv.send_with_callback(update_track_lists, "get_property", "track-list")
+  mpv.observe_property("track-list", update_track_lists)
+
+  local cb = cache_callback("chapter-list", make_chapter_list)
+  mpv.send_with_callback(cb, "get_property", "chapter-list")
+  mpv.observe_property("chapter-list", cb)
+
+
+  listeners["end-file"] = function(message)
+    if message["reason"] == "quit" then
+      mpv.disconnect(deinitalize)
+    end
+  end
+
+  mpv.send_with_callback(update_sub_delay, "get_property", "sub-delay")
+  mpv.observe_property("sub-delay", update_sub_delay)
+
+  mpv.send_with_callback(update_audio_delay, "get_property", "audio-delay")
+  mpv.observe_property("audio-delay", update_audio_delay)
+end
+
+local directory_contents = {}
 
 local function file_sorter(a, b)
   --Always put directories first
@@ -189,13 +261,13 @@ local function file_sorter(a, b)
 end
 
 local function play_with_mpv(path)
-  if tid then
+  if mpv.connect() then
     mpv.send("loadfile", path)
   else
     os.start("mpv", path)
     -- it can take some time for mpv to create the socket, so we will make 10
     -- attempts to connect at 50 ms intervals
-    mpv.connect(settings.input_ipc_server, initialize, 10, 50)
+    mpv.connect(initialize, 10, 50)
   end
 end
 
@@ -211,6 +283,8 @@ local function open_file (path)
 end
 
 local function list_directory()
+  update_selected_sort_key()
+
   local wd = settings.working_directory
   if not fs.exists(wd) then
     log.warn("Directory " .. wd .. " does not exist; resetting to $HOME")
@@ -246,25 +320,25 @@ local function list_directory()
       modified = fs.modified(path)
     }
   end
-  for i, dname in ipairs(fs.dirs(wd)) do
+  for _, dname in ipairs(fs.dirs(wd)) do
     local e = make_dir_entry(dname)
     e["mode"] = "directory"
     table.insert(dir_entries, e)
   end
 
-  for i, fname in ipairs(fs.files(wd)) do
+  for _, fname in ipairs(fs.files(wd)) do
     local e = make_dir_entry(fname)
     e["mode"] = "file"
     table.insert(dir_entries, e)
   end
   table.sort(dir_entries, file_sorter)
 
-  for i, f in ipairs(dir_entries) do
+  for _, f in ipairs(dir_entries) do
     local fi = make_file_item(f)
     table.insert(directory_contents, fi)
   end
 
-  parent_dir = fs.parent(wd)
+  local parent_dir = fs.parent(wd)
   if parent_dir ~= wd then
     local parent = {
       type = "item",
@@ -278,33 +352,6 @@ local function list_directory()
   server.update( {id = "files_list", children = directory_contents } )
 end
 
-local function update_selected_sort_key (prev)
-  local key = settings.sort_files_by
-
-  local capitalize = function(s)
-    return s:sub(1, 1):upper() .. s:sub(2, -1)
-  end
-
-  if prev ~= nil and prev ~= key then
-    server.update( {
-        id = "sort_by_" .. prev,
-        checked = false,
-        text = capitalize(prev)
-    })
-  end
-  local order
-  if settings.sort_order == "ascending" then
-    order = "🔼"
-  else
-    order = "🔽"
-  end
-  server.update( {
-    id = "sort_by_" .. key,
-    checked = true,
-    text = capitalize(key) .. order
-  })
-end
-
 local function set_file_sort_key(sort_key)
   local prev = settings.sort_files_by
   settings.sort_files_by = sort_key
@@ -314,69 +361,16 @@ local function set_file_sort_key(sort_key)
     settings.sort_order = "descending"
   end
 
-  update_selected_sort_key(prev)
   list_directory()
 end
 
--- Initialize the UI to reflect the current state
-local initialize = function ()
-  update_selected_sort_key()
-
-  mpv.send_with_callback(update_volume, "get_property", "volume")
-  mpv.observe_property("volume", update_volume)
-  mpv.send_with_callback(update_mute, "get_property", "mute")
-  mpv.observe_property("mute", update_mute)
-
-  local props = { "duration", "time-pos" }
-  for n, p in ipairs(props) do
-    local cb = cache_callback(p, update_seekbar)
-    mpv.send_with_callback(cb, "get_property", p)
-    mpv.observe_property(p, cb)
-  end
-
-  mpv.send_with_callback(set_title, "get_property", "media-title")
-  mpv.observe_property("media-title", set_title)
-
-  mpv.send_with_callback(update_track_lists, "get_property", "track-list")
-  mpv.observe_property("track-list", update_track_lists)
-
-  local cb = cache_callback("chapter-list", make_chapter_list)
-  mpv.send_with_callback(cb, "get_property", "chapter-list")
-  mpv.observe_property("chapter-list", cb)
-
-
-  listeners["end-file"] = function(message)
-    if message["reason"] == "quit" then
-      mpv.disconnect(deinitalize)
-    end
-  end
-
-  mpv.send_with_callback(update_sub_delay, "get_property", "sub-delay")
-  mpv.observe_property("sub-delay", update_sub_delay)
-
-  mpv.send_with_callback(update_audio_delay, "get_property", "audio-delay")
-  mpv.observe_property("audio-delay", update_audio_delay)
-end
-
--- Deinitialize the UI when we disconnect from mpv
-local deinitalize = function (...)
-    layout.media_title.text = "Not playing"
-    layout.volume_slider.progress = "50"
-end
 
 return {
   initialize = initialize,
   deinitalize = deinitalize,
-  update_seekbar = update_seekbar,
-  update_volume = update_volume,
-  update_mute = update_mute,
-  set_title = set_title,
-  update_track_lists = update_track_lists,
-  update_sub_delay = update_sub_delay,
-  update_audio_delay = update_audio_delay,
   open_file = open_file,
   list_directory = list_directory,
   set_file_sort_key = set_file_sort_key,
-  update_selected_sort_key = update_selected_sort_key,
+  directory_contents = function (index) return directory_contents[index] end
 }
 

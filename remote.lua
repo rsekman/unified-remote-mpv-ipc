@@ -1,5 +1,4 @@
-local fs = libs.fs;
-local log = require("log")
+local fs = require("fs")
 
 local mpv = require("mpv")
 local ui = require("ui")
@@ -8,8 +7,12 @@ local ui = require("ui")
 -- Remote events
 -----------------------------------------------------------
 
-local connect = function()  return mpv.connect(ui.initialize) end
-local disconnect = function()  mpv.disconnect(ui.deinitialize) end
+local connect = function()
+  return mpv.connect(ui.initialize)
+end
+local disconnect = function()
+  mpv.disconnect(ui.deinitialize)
+end
 -- Always allow a few actions, without trying to connect.
 local allow = {
   onoff = true,
@@ -48,19 +51,21 @@ local load_settings = function ()
   if settings.sort_files_by == "" or settings.sort_files_by == nil then
     actions.set_file_sort_key_name()
   end
-  ui.list_directory()
 end
 
+local function refresh()
+  load_settings()
+  ui.list_directory()
+end
 -- Set the input field when loading the remote.
 events.create = function()
-  load_settings()
+  refresh()
 end
 
 -- Set the input field when the remote gains focus, and try to connect.
 -- Apparently some things happen with the internal state of the remote when it loses focus.
 events.focus = function()
-  load_settings()
-
+  refresh()
   connect()
 end
 
@@ -103,13 +108,21 @@ actions.change_directory = function (path)
 end
 
 actions.open_file = function (index)
-  directory_contents[index+1].ontap()
+  ui.directory_contents(index+1).ontap()
 end
 
-actions.set_file_sort_key_name = function() ui.set_file_sort_key("name") end
-actions.set_file_sort_key_created = function() ui.set_file_sort_key("created") end
-actions.set_file_sort_key_modified = function() ui.set_file_sort_key("modified") end
-actions.set_file_sort_key_size = function() ui.set_file_sort_key("size") end
+actions.set_file_sort_key_name = function()
+  ui.set_file_sort_key("name")
+end
+actions.set_file_sort_key_created = function()
+  ui.set_file_sort_key("created")
+end
+actions.set_file_sort_key_modified = function()
+  ui.set_file_sort_key("modified")
+end
+actions.set_file_sort_key_size = function()
+  ui.set_file_sort_key("size")
+end
 
 --@help Lower volume
 actions.volume_down = function()
