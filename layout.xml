@@ -50,6 +50,12 @@
         <button icon="ff" onTap="playback_speed_up" />
       </row>
     </tab>
+    <tab text="Chapters">
+      <row weight="5">
+        <list id="chapter_list" onTap="go_to_chapter">
+        </list>
+      </row>
+    </tab>
     <tab text="Audio">
       <row weight="5">
         <list id="audio_list" onTap="set_audio_id">

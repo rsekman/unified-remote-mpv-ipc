@@ -154,7 +154,23 @@ end
 actions.backward = function()
   mpv.send("seek", -10)
 end
---
+
+--@help Set chapter
+actions.go_to_chapter = function(index)
+  local cb = function(message)
+    if message.data == nil then
+      return
+    end
+    local ch = message.data[index+1]
+    if ch == nil or ch.time == nil then
+      return
+    end
+
+    mpv.send("seek", ch.time, "absolute")
+  end
+  mpv.send_with_callback(cb, "get_property", "chapter-list")
+end
+
 --@help Previous chapter
 actions.previous_chapter = function()
   mpv.send("add", "chapter", -1)
