@@ -36,9 +36,10 @@ local function fmt_time(t)
 end
 
 -- Update the seekbar
-local function seek()
+local function update_seekbar()
   local duration = property_cache["duration"]
   local progress = property_cache["time-pos"]
+
   if duration == nil or progress == nil then
     return
   end
@@ -287,7 +288,7 @@ local initialize = function ()
 
   local props = { "duration", "time-pos" }
   for n, p in ipairs(props) do
-    local cb = cache_callback(p, seek)
+    local cb = cache_callback(p, update_seekbar)
     mpv.send_with_callback(cb, "get_property", p)
     mpv.observe_property(p, cb)
   end
@@ -320,7 +321,7 @@ end
 return {
   initialize = initialize,
   deinitalize = deinitalize,
-  seek = seek,
+  update_seekbar = update_seekbar,
   update_volume = update_volume,
   update_mute = update_mute,
   set_title = set_title,
