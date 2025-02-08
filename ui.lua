@@ -35,8 +35,50 @@ local function fmt_time(t)
     end
 end
 
+local function mark_current_chapter(message)
+  local progress = property_cache["time-pos"]
+  if progress == nil or chapters == nil then
+    return
+  end
+  local prev_begin = 0
+  for n, ch in ipairs(chapters) do
+    ch.checked = false
+    if prev_begin <= progress and progress < ch.time then
+      chapters[n-1].checked = true
+    end
+    prev_begin = ch.time
+  end
+  if prev_begin <= progress then
+     -- chapters[n].checked = true
+  end
+
+  server.update( {id = "chapter_list", children = chapters } )
+end
+
+-- Initialize the chapter list
+local function make_chapter_list(message)
+  log.info("making chapter list")
+  chapters = {}
+  local make_chapter_item = function (data, n)
+      return {
+        type = "item",
+        checked = false,
+        text = data.title or string.format("Chapter %d", n),
+        time = data.time,
+      }
+  end
+
+  for n, t in ipairs(message.data) do
+    local chapter = make_chapter_item(t)
+    table.insert(chapters, chapter)
+  end
+
+  mark_current_chapter(message)
+end
+
 -- Update the seekbar
 local function seek()
+  mark_current_chapter(message)
   local duration = property_cache["duration"]
   local progress = property_cache["time-pos"]
   if duration == nil or progress == nil then
@@ -300,6 +342,11 @@ local initialize = function ()
 
   mpv.send_with_callback(update_track_lists, "get_property", "track-list")
   mpv.observe_property("track-list", update_track_lists)
+
+  local cb = cache_callback("chapter-list", make_chapter_list)
+  mpv.send_with_callback(cb, "get_property", "chapter-list")
+  mpv.observe_property("chapter-list", cb)
+
 
   listeners["end-file"] = function(message)
     if message["reason"] == "quit" then
