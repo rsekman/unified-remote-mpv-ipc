@@ -94,6 +94,10 @@ local function update_seekbar()
   layout.seek_slider.text = string.format("%s / %s", p_str, d_str)
 end
 
+local function reset_seekbar()
+  server.update( {id = "seek_slider", progress = "50", text = "N/A" } )
+end
+
 -- Update the volume bar
 local function update_volume(message)
   if message.data then
@@ -202,6 +206,8 @@ end
 local deinitalize = function ()
     layout.media_title.text = "Not playing"
     layout.volume_slider.progress = "50"
+    property_cache = {}
+    reset_seekbar()
 end
 
 -- Initialize the UI to reflect the current state
