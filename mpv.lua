@@ -269,6 +269,10 @@ local function observe_property(name, callback)
   send("observe_property", 1, name)
 end
 
+local function listen(name, callback)
+  listeners[name] = callback
+end
+
 return {
   connect = connect,
   disconnect = disconnect,
@@ -276,4 +280,5 @@ return {
   send = send,
   send_with_callback = send_with_callback,
   observe_property = observe_property,
+  listen = listen
 }

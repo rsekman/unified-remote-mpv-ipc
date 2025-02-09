@@ -229,11 +229,12 @@ local function initialize()
   mpv.observe_property("chapter-list", cb)
 
 
-  listeners["end-file"] = function(message)
+  local cb = function(message)
     if message["reason"] == "quit" then
       mpv.disconnect(deinitalize)
     end
   end
+  mpv.listen("end-file", cb)
 
   mpv.send_with_callback(update_sub_delay, "get_property", "sub-delay")
   mpv.observe_property("sub-delay", update_sub_delay)
